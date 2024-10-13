@@ -23,7 +23,7 @@ SoulTap is a modern social media platform built for connection and expression. W
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Rohitth10e/SoulTap-socialmedia-website.git
+   git clone https://github.com/Rohitth10e/SoulTap-social-express.git
    ```
 
 2. **Install dependencies**:
