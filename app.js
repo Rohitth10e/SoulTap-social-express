@@ -3,13 +3,31 @@ const userModel = require('./models/user');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const postModel = require('./models/post')
-const moment = require('moment')
-const path = require('path')
-const multer = require('multer')
-const upload = require('./config/multerconfig')
+const postModel = require('./models/post');
+const moment = require('moment');
+const path = require('path');
+const multer = require('multer');
+const upload = require('./config/multerconfig');
+require('dotenv').config();
 
 const app = express();
+
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        });
+        console.log('MongoDB Connected...');
+    } catch (err) {
+        console.error(err.message);
+        process.exit(1);
+    }
+};
+
+connectDB();
 
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
@@ -42,74 +60,67 @@ app.post('/register', async (req, res) => {
             password: hash,
         });
 
-        const token = jwt.sign({ email: email, userId: user._id }, 'verySecretKey69', { expiresIn: '1h' });
+        const token = jwt.sign({ email: email, userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.cookie('token', token, { httpOnly: true });
 
-        // res.status(201).json({ message: 'User registered', user: user });
-        res.redirect("/profile")
+        res.redirect("/profile");
     } catch (error) {
-        // res.status(500).json({ message: 'Server error', error: error.message });
-        res.redirect("/")
+        res.redirect("/");
     }
 });
 
 app.get("/login", (req, res) => {
-    res.render("login")
-})
+    res.render("login");
+});
 
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
     try {
-        const user = await userModel.findOne({ email })
-        if (!user) return res.json({ message: "Something went wrong" })
+        const user = await userModel.findOne({ email });
+        if (!user) return res.json({ message: "Something went wrong" });
 
         bcrypt.compare(password, user.password, (err, result) => {
             if (err) {
-                return res.json({ message: "Invalid credentials" })
+                return res.json({ message: "Invalid credentials" });
             }
-            const token = jwt.sign({ email: email, userId: user._id }, 'verySecretKey69', { expiresIn: '1h' });
+            const token = jwt.sign({ email: email, userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
             res.cookie('token', token, { httpOnly: true });
-            // res.json({ message: "Login Successfull", user: user })
             res.redirect("profile");
-        })
-
+        });
 
     } catch (err) {
         console.log(err.message);
     }
-})
+});
 
 app.get("/profile", isLoggedIn, async (req, res) => {
     const email = req.user.email;
     try {
-        const posts = await postModel.find().populate("user", 'username');
+        const posts = await postModel.find().populate("user", 'username profilePicture');
         console.log(posts)
         const user = await userModel.findOne({ email: email }).populate("posts");
-        res.render("profile", { user, posts })
+        res.render("profile", { user, posts });
     } catch (err) {
         console.log("err in profile: ", err.message);
-        res.redirect("/login")
+        res.redirect("/login");
     }
 });
 
-
 app.get("/profile/upload", isLoggedIn, async (req, res) => {
-    res.render("profileupload")
-})
+    res.render("profileupload");
+});
 
 app.post("/upload", isLoggedIn, upload.single('image'), async (req, res) => {
     try {
         const user = await userModel.findOne({ email: req.user.email });
-        console.log(req.file)
         user.profilePicture = req.file.filename;
         await user.save();
-        res.redirect("/profile")
+        res.redirect("/profile");
     } catch (err) {
         console.log("error: ", err.message);
         res.redirect("/");
     }
 });
-
 
 app.post("/post", isLoggedIn, async (req, res) => {
     const { postContent } = req.body;
@@ -119,58 +130,55 @@ app.post("/post", isLoggedIn, async (req, res) => {
         const post = await postModel.create({
             user: user._id,
             content: postContent.trim()
-        })
+        });
 
         user.posts.push(post._id);
         await user.save();
 
         res.redirect("/profile");
     } catch (err) {
-        res.redirect("/profile")
+        res.redirect("/profile");
     }
-})
+});
 
 app.get('/like/:id', isLoggedIn, async (req, res) => {
     try {
-        const post = await postModel.findOne({ _id: req.params.id }).populate("user")
-        console.log(req.user)
+        const post = await postModel.findOne({ _id: req.params.id }).populate("user");
         if (post.likes.indexOf(req.user.userId) == -1) {
-            post.likes.push(req.user.userId)
+            post.likes.push(req.user.userId);
         } else {
             post.likes.splice(post.likes.indexOf(req.user.userId), 1);
         }
         await post.save();
-        res.redirect("/profile")
+        res.redirect("/profile");
     } catch (err) {
         console.log("err", err.message);
     }
-})
+});
 
 app.get('/edit/:id', isLoggedIn, async (req, res) => {
     try {
-        const post = await postModel.findOne({ _id: req.params.id })
+        const post = await postModel.findOne({ _id: req.params.id });
         if (req.user.userId == post.user._id) {
-            console.log(post)
-            res.render("edit", { post })
-        }else{
-            res.redirect("/profile")
+            res.render("edit", { post });
+        } else {
+            res.redirect("/profile");
         }
-        // res.redirect("/profile")
     } catch (err) {
         console.log("error", err.message);
-        res.redirect("/profile")
+        res.redirect("/profile");
     }
-})
+});
 
 app.post('/edit/:id', isLoggedIn, async (req, res) => {
     try {
-        const updatedPost = await postModel.findOneAndUpdate({ _id: req.params.id }, { content: req.body.postContent.trim() }, { new: true })
-        res.redirect("/profile")
+        const updatedPost = await postModel.findOneAndUpdate({ _id: req.params.id }, { content: req.body.postContent.trim() }, { new: true });
+        res.redirect("/profile");
     } catch (err) {
         console.log(err.message);
-        res.redirect("/profile")
+        res.redirect("/profile");
     }
-})
+});
 
 app.get('/delete/:id', isLoggedIn, async (req, res) => {
     try {
@@ -181,8 +189,6 @@ app.get('/delete/:id', isLoggedIn, async (req, res) => {
             return res.redirect("/");
         }
 
-        console.log("Post user ID:", post.user._id);
-        console.log("Logged-in user ID:", req.user.userId);
         if (post.user._id.equals(req.user.userId)) { 
             await postModel.deleteOne({ _id: req.params.id });
             return res.redirect("/profile"); 
@@ -196,16 +202,14 @@ app.get('/delete/:id', isLoggedIn, async (req, res) => {
     }
 });
 
-
 app.get("/logout", (req, res) => {
     res.cookie("token", "");
-    // res.json({ message: "User logged out" });
-    res.redirect("/login")
-})
+    res.redirect("/login");
+});
 
 function isLoggedIn(req, res, next) {
     if (req.cookies.token === "") res.redirect("/login");
-    const data = jwt.verify(req.cookies.token, "verySecretKey69")
+    const data = jwt.verify(req.cookies.token, process.env.JWT_SECRET);
     req.user = data;
     next();
 }

@@ -56,13 +56,18 @@
                 <% posts.reverse().forEach((post)=> { %>
                     <div class="border border-zinc-700 rounded-md bg-zinc-800 w-full mt-4 relative shadow-md">
                         <div class="p-4">
-                            <p class="text-blue-500 text-md mb-2 font-semibold h-8 overflow-hidden">@<%=
+                            <div class="flex items-center w-full h-8 mb-3 gap-2">
+                                <div class="w-8 h-8">
+                                    <img src="/images/uploads/<%= post.user.profilePicture %>" alt="" class="rounded-3xl w-full h-full">
+                                </div>
+                                <p class="text-blue-500 text-md">@<%=
                                     post.user.username %>
                             </p>
-                            <p class="text-sm text-gray-300 tracking-tight h-16 overflow-hidden">
+                            </div>
+                            <p class="text-sm text-gray-300 tracking-tight h-22 overflow-hidden">
                                 <%= post.content %>
                             </p>
-                            <small class="text-slate-400 text-xs block mb-2">
+                            <small class="text-slate-400 text-xs block mt-2">
                                 <%= post.likes.length %> likes
                             </small>
                         </div>
